@@ -6,7 +6,7 @@ use Facebook\WebDriver\Remote\DesiredCapabilities;
 class stotax
 {
 
-    function __construct($username,$password)
+    function __construct($username,$password, $debug = false)
     {
         $this->stotax_user = $username;
         $this->stotax_pass = $password;
@@ -14,8 +14,14 @@ class stotax
         
         $this->cookie_file = "/tmp/cookiefile";
 
+        $browserdriver_params = ['--headless','--no-sandbox'];
+        if ($debug) {
+            $browserdriver_params = ['--no-sandbox'];
+        }
+        
+        
         $this->client = \Symfony\Component\Panther\Client::createChromeClient('/usr/bin/chromedriver', 
-            ['--headless'], 
+            $browserdriver_params, 
             [
             'capabilities' => [
                 'goog:loggingPrefs' => [
@@ -63,12 +69,18 @@ class stotax
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_VERBOSE, false);
         // curl_setopt($ch, CURLOPT_STDERR, $fp);
+        if (isset($time)) {
+            list($y,$m,$d) = preg_split("/-/",$time);
+            $fachlichkeitsZeitraumVon = date("D M d Y", mktime(0,0,0,$m,$d,$y));
+        } else {
+            $fachlichkeitsZeitraumVon = 'null';
+        }
         curl_setopt($ch, CURLOPT_POSTFIELDS, [
             // ATTACH FILE UPLOAD
             "file" => $cf,
-            "fachlichkeitsZeitraumVon" => 'null',
+            "fachlichkeitsZeitraumVon" => $fachlichkeitsZeitraumVon,
             "text" => 'Autouploaded',
-            "zeitraumTyp" => 1
+            "zeitraumTyp" => 8
         ]);
 
         foreach ($header as $k => $v) {
@@ -89,6 +101,73 @@ class stotax
         }
     }
 
+    function stotax_upload_files($files, $fachlichkeit = "Rewe-Buchungsbelege", $time = NULL)
+    {
+        $header = $this->header;
+        
+        $header["Sec-Fetch-Dest"] = "empty";
+        $header["Sec-Fetch-Mode"] = "cors";
+        $header["Sec-Fetch-Site"] = "same-origin";
+        $header["TE"] = "trailers";
+        $header["Referer"] = "https://www.stotax-online.de/auswertungen/";
+        $header["Host"] = "www.stotax-online.de";
+        $header["Origin"] = "https://www.stotax-online.de";
+        $header["Connection"] = "keep-alive";
+        $header["Accept-Encoding"] = "gzip, deflate, br";
+        
+        $fachlichkeit_id = $this->fachlichkeiten[$fachlichkeit];
+        $mandant = $this->mandant;
+        $post_url = "https://www.stotax-online.de/auswertungen/api/v1/mandant/$mandant/beleg?fachlichkeitId=$fachlichkeit_id&customSubject=&privateData=false";
+        
+        foreach ($files as $index => $file) { 
+            $postData['file[' . $index . ']'] = curl_file_create(
+                realpath($file),
+                mime_content_type($file),
+                basename($file)
+                );
+            
+        }
+
+        if (isset($time)) {
+            list($y,$m,$d) = preg_split("/-/",$time);
+            $fachlichkeitsZeitraumVon = date("D M d Y", mktime(0,0,0,$m,$d,$y));
+        } else {
+            $fachlichkeitsZeitraumVon = 'null';
+        }
+        
+        $postData["fachlichkeitsZeitraumVon"] = $fachlichkeitsZeitraumVon; 
+        $postData["text"] = "Autouploaded";
+        $postData["zeitraumTyp"] = 8 ; 
+        
+        // $fp = fopen(dirname(__FILE__).'/errorlog.txt', 'w');
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $post_url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_VERBOSE, false);
+        // curl_setopt($ch, CURLOPT_STDERR, $fp);
+
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+        
+        foreach ($header as $k => $v) {
+            $curl_header[] = "$k: $v";
+        }
+        
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $curl_header);
+        
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $result = curl_exec($ch);
+        if (curl_errno($ch)) {
+            return "CURL ERROR - " . curl_error($ch);
+        }
+        else {
+            // $info = curl_getinfo($ch);
+            // print_r($info);
+            return $result;
+        }
+    }
+    
+    
+    
     function stotax_download_files($save_dir = null)
     {
         
@@ -115,7 +194,7 @@ class stotax
         }
         array_unique($item_ids);
         array_unique($filenames);
-        //var_dump($filenames);
+        var_dump($filenames);
 
         //var_dump($item_ids);
         
@@ -139,7 +218,7 @@ class stotax
             $header["Accept-Encoding"] = "gzip, deflate, br";
             $header["Accept"] = "application/json, text/plain, */*";
             
-            $filename = $filenames[$document_id];
+            $filename = $document_id."_".$filenames[$document_id];
             if (file_exists($save_dir."/".$filename)) { 
                 $downloaded[] = "skipped: ".$save_dir."/".$filename ; 
                 continue; 
@@ -224,15 +303,23 @@ class stotax
         $driver = $this->client->getWebDriver();
         $log = $driver->manage()->getLog("performance");
 
-        $last_log_entry = array_pop($log);
-
-        $log_entry = json_decode($last_log_entry["message"]);
-
-        $header = $log_entry->message->params->request->headers;
-        $header = (array) $header;
-        $this->client->switchTo()->defaultContent();
         
+        foreach ($log as $entry) { 
+            $log_entry = json_decode($entry["message"]);
+            
+            if (isset($log_entry->message->params->request->headers)) {
+                $header = $log_entry->message->params->request->headers;
+                $header = (array) $header;
+
+                if (isset($header["Authorization"])) { 
+
+                    break;
+                }
+            }
+        }
+        $this->client->switchTo()->defaultContent();
         return $header;
+        
     }
     
     function get_user_info_from_jwt($token) { 
