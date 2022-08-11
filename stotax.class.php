@@ -63,12 +63,10 @@ class stotax
         $upload_filename = array_pop($split);
         $cf = new CURLFile($file, mime_content_type($file), $upload_filename);
 
-        // $fp = fopen(dirname(__FILE__).'/errorlog.txt', 'w');
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $post_url);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_VERBOSE, false);
-        // curl_setopt($ch, CURLOPT_STDERR, $fp);
         if (isset($time)) {
             list($y,$m,$d) = preg_split("/-/",$time);
             $fachlichkeitsZeitraumVon = date("D M d Y", mktime(0,0,0,$m,$d,$y));
@@ -95,8 +93,6 @@ class stotax
             return "CURL ERROR - " . curl_error($ch);
         } 
         else {
-            // $info = curl_getinfo($ch);
-            // print_r($info);
             return $result;
         }
     }
@@ -139,12 +135,10 @@ class stotax
         $postData["text"] = "Autouploaded";
         $postData["zeitraumTyp"] = 8 ; 
         
-        // $fp = fopen(dirname(__FILE__).'/errorlog.txt', 'w');
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $post_url);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_VERBOSE, false);
-        // curl_setopt($ch, CURLOPT_STDERR, $fp);
 
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
         
@@ -160,8 +154,7 @@ class stotax
             return "CURL ERROR - " . curl_error($ch);
         }
         else {
-            // $info = curl_getinfo($ch);
-            // print_r($info);
+
             return $result;
         }
     }
@@ -194,12 +187,6 @@ class stotax
         }
         array_unique($item_ids);
         array_unique($filenames);
-        var_dump($filenames);
-
-        //var_dump($item_ids);
-        
-        // URL api/v1/dokument/80b71411-ce0c-ed11-ad81-0050568d5f34%7CDokument%7C80b71411-ce0c-ed11-ad81-0050568d5f34
-        // https://www.stotax-online.de/auswertungen/api/v1/accesstoken?baseString=api%2Fv1%2Fdokument%2F80b71411-ce0c-ed11-ad81-0050568d5f34%257CDokument%257C80b71411-ce0c-ed11-ad81-0050568d5f34
         $downloaded = array();
 
         foreach ($item_ids as $document_id) { 
@@ -241,12 +228,9 @@ class stotax
                 return "CURL ERROR - " . curl_error($ch);
             }
             else {
-                // $info = curl_getinfo($ch);
-                // print_r($info);
                 $token_result = json_decode($result);
             }
             $accessToken = $token_result->accessToken; 
-            //print $accessToken.PHP_EOL ;
             
             unset($curl_header);
             unset($header["Authorization"]);
@@ -312,7 +296,6 @@ class stotax
                 $header = (array) $header;
 
                 if (isset($header["Authorization"])) { 
-
                     break;
                 }
             }
