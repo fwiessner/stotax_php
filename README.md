@@ -19,13 +19,10 @@ $result = $s->stotax_download_files('/tmp/stotax') ;
 var_dump($result);
 
 
-//upload file to stotax
-$result = $s->stotax_upload_file("~/Downloads/test.pdf","Rewe-Buchungsbelege",$time = '2022-04-01');
+//upload file(s) to stotax
+$result = $s->stotax_upload_belege(array("~/Downloads/test.pdf"),"Rewe-Buchungsbelege",$time = '2022-04-01');
 var_dump($result);
 
-//upload files to stotax
-$result = $s->stotax_upload_file(array( 0 => "~/Downloads/test.pdf", 1 => "/tmp/test.pdf") ,"Rewe-Buchungsbelege", $time='2022-04-01' );
-var_dump($result);
 
 ```
 
